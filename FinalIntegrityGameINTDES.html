@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INTEGRITY: Neural Defense Protocol v9.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #02040a;
+            --bg-panel: rgba(5, 10, 20, 0.9);
+            --neon-blue: #3b82f6;
+            --neon-cyan: #00f0ff;
+            --neon-red: #ff2a2a;
+            --neon-green: #00ff9d;
+            --text-main: #e2e8f0;
+            --text-dim: #94a3b8;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Rajdhani', sans-serif;
+            height: 100vh; overflow: hidden;
+        }
+
+        /* --- UTILS --- */
+        .hidden { display: none !important; }
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px; z-index: 999; opacity: 0.3;
+        }
+        
+        /* --- BUTTONS --- */
+        .cyber-btn {
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 15px 30px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+        }
+        .cyber-btn:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-cyan);
+        }
+
+        /* --- SCREEN CONTAINERS --- */
+        .screen {
+            width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0;
+            display: flex; flex-direction: column;
+            animation: fadeIn 0.5s ease-out;
+            background-size: cover; background-position: center;
+        }
+        
+        .overlay-dim {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.6); z-index: 1;
+        }
+        
+        .screen-content {
+            position: relative; z-index: 2; width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- 1. TITLE SCREEN --- */
+        #title-screen { background-image: url('protogen_main.jpg'); }
+        .title-container {
+            flex: 1; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; text-align: center;
+            backdrop-filter: blur(2px);
+        }
+        .main-logo {
+            border: 2px solid var(--neon-cyan); padding: 40px 80px;
+            background: rgba(0, 10, 20, 0.85);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+        }
+        
+        /* --- 2. SECTOR MENU --- */
+        #sector-menu { background: #050b14; padding: 40px; }
+        .sector-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px;
+            padding: 20px 50px; flex: 1; overflow-y: auto;
+        }
+        .sector-card {
+            background: var(--bg-panel); border: 1px solid #334155;
+            height: 320px; display: flex; flex-direction: column;
+            transition: 0.3s; cursor: pointer; overflow: hidden; position: relative;
+        }
+        .sector-card:hover { border-color: var(--neon-cyan); transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0,240,255,0.2); }
+        .card-img { height: 50%; width: 100%; object-fit: cover; border-bottom: 1px solid #334155; }
+        .card-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .card-icon { color: var(--neon-red); font-size: 1.2rem; margin-bottom: 5px; }
+        .card-title { color: var(--neon-cyan); font-family: 'Share Tech Mono'; font-size: 1.4rem; letter-spacing: 1px; }
+        .card-desc { color: var(--text-dim); font-size: 0.9rem; line-height: 1.4; margin-top: 10px; }
+        
+        /* --- 3. GAMEPLAY UI --- */
+        #game-ui { background: #02040a; }
+        .game-layout { display: grid; grid-template-columns: 1.2fr 0.8fr; height: 100%; }
+        
+        /* Left: Visual Scene */
+        .visual-panel {
+            position: relative; border-right: 2px solid var(--neon-blue);
+            background: #000; overflow: hidden;
+        }
+        .scene-bg { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
+        
+        /* Right: Interaction */
+        .interaction-panel {
+            padding: 40px; display: flex; flex-direction: column; gap: 20px;
+            background: radial-gradient(circle at top right, #0f172a, #02040a);
+        }
+        
+        .timer-bar-bg { width: 100%; height: 8px; background: #1e293b; border-radius: 4px; overflow: hidden; }
+        .timer-bar-fill { height: 100%; background: var(--neon-cyan); width: 100%; transition: width 1s linear; }
+
+        .scenario-box {
+            background: rgba(15, 23, 42, 0.6); border: 1px solid var(--neon-blue);
+            padding: 25px; border-radius: 5px; min-height: 180px;
+            font-size: 1.2rem; line-height: 1.6;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
+        }
+        
+        .option-btn {
+            background: transparent; border: 1px solid #334155;
+            color: var(--text-main); padding: 18px 25px; text-align: left;
+            font-family: 'Rajdhani'; font-size: 1.1rem; cursor: pointer;
+            transition: 0.2s; position: relative;
+        }
+        .option-btn:hover { border-color: var(--neon-cyan); background: rgba(0, 240, 255, 0.05); }
+        .option-btn span { color: var(--neon-cyan); font-family: monospace; margin-right: 15px; }
+
+        /* --- 4. RESULT SCREENS --- */
+        #success-screen { background-image: url('scene_success.jpg'); }
+        #fail-screen { background-image: url('scene_failure.jpg'); }
+        
+        .end-content {
+            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; backdrop-filter: blur(3px); background: rgba(0,0,0,0.4);
+        }
+        .end-title { font-family: 'Share Tech Mono'; font-size: 4rem; letter-spacing: 5px; margin: 0; text-shadow: 0 0 20px currentColor; }
+        
+        /* --- 5. THREAT ANALYSIS --- */
+        #analysis-screen { background-image: url('scene_learn.jpg'); }
+        .analysis-wrapper {
+            max-width: 1000px; margin: 50px auto; background: rgba(5, 10, 20, 0.95);
+            border: 1px solid var(--neon-blue); height: 85vh; display: flex; flex-direction: column;
+            backdrop-filter: blur(10px);
+        }
+        .analysis-header { padding: 30px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .analysis-list { overflow-y: auto; padding: 30px; flex: 1; display: flex; flex-direction: column; gap: 25px; }
+        
+        .report-card {
+            background: rgba(30, 41, 59, 0.5); border-left: 4px solid var(--neon-red);
+            padding: 20px;
+        }
+        .report-q { font-weight: bold; font-size: 1.1rem; margin-bottom: 15px; }
+        .report-ans { font-family: monospace; font-size: 0.95rem; margin-bottom: 5px; }
+        .report-exp { margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); color: var(--text-dim); }
+
+        /* --- BRIEFING MODAL --- */
+        #briefing-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 200;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .brief-box {
+            width: 600px; background: #02040a; border: 2px solid var(--neon-cyan);
+            padding: 40px; box-shadow: 0 0 50px rgba(0, 240, 255, 0.15);
+        }
+
+        /* --- LOGS SPECIFIC STYLES --- */
+        .log-entry { margin-bottom: 20px; border-bottom: 1px solid #222; padding-bottom: 10px; }
+        summary { color: var(--neon-blue); font-family: 'Share Tech Mono'; cursor: pointer; outline: none; margin-top: 10px; }
+        summary:hover { color: var(--neon-cyan); }
+
+    </style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<div id="title-screen" class="screen">
+    <div class="overlay-dim"></div>
+    <div class="screen-content title-container">
+        <div class="main-logo">
+            <h1 style="font-family:'Share Tech Mono'; font-size:5rem; color:var(--neon-cyan); margin:0;">INTEGRITY</h1>
+            <p style="letter-spacing:4px; color:var(--neon-blue); margin-top:10px;">NEURAL DEFENSE PROTOCOL v9.0</p>
+            <div style="margin-top:50px; display:flex; flex-direction:column; gap:20px; width:300px; margin-left:auto; margin-right:auto;">
+                <button class="cyber-btn" onclick="showSectorMenu()">> START SIMULATION</button>
+                <button class="cyber-btn" onclick="openLogs()">> VIEW ARCHIVES</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="sector-menu" class="screen hidden">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--neon-blue); padding-bottom:20px;">
+        <h2 style="font-family:'Share Tech Mono'; margin:0; color:var(--neon-cyan)">SELECT TRAINING MODULE</h2>
+        <button class="cyber-btn" style="padding:10px 20px;" onclick="goBack('title-screen')">BACK</button>
+    </div>
+    
+    <div class="sector-grid">
+        <div class="sector-card" onclick="initGame('full')" style="border-color:var(--neon-green)">
+            <div class="card-body" style="justify-content:center; align-items:center; text-align:center;">
+                <div style="font-size:4rem; color:var(--neon-green); margin-bottom:20px;">◈</div>
+                <div class="card-title" style="color:var(--neon-green)">FULL SIMULATION</div>
+                <div class="card-desc">Randomized selection of 20 scenarios from all categories.</div>
+            </div>
+        </div>
+
+        <div class="sector-card" onclick="initGame('identity')">
+            <img src="category_deepfake.jpg" class="card-img" alt="Identity">
+            <div class="card-body">
+                <div>
+                    <div class="card-icon">👁 IDENTITY FRAUD</div>
+                    <div class="card-desc">Detect deepfakes, face morphing, and synthetic impersonation attempts.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sector-card" onclick="initGame('content')">
+            <img src="category_plagiarism.jpg" class="card-img" alt="Content">
+            <div class="card-body">
+                <div>
+                    <div class="card-icon">📄 CONTENT THEFT</div>
+                    <div class="card-desc">Identify AI plagiarism, style copying, and unauthorized reproduction.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sector-card" onclick="initGame('voice')">
+            <img src="category_voice.jpg" class="card-img" alt="Voice">
+            <div class="card-body">
+                <div>
+                    <div class="card-icon">🎙 VOICE SPOOFING</div>
+                    <div class="card-desc">Recognize synthetic audio, vishing, and voice cloning attacks.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sector-card" onclick="initGame('bias')">
+            <img src="category_bias.jpg" class="card-img" alt="Bias">
+            <div class="card-body">
+                <div>
+                    <div class="card-icon">⚖ AI BIAS</div>
+                    <div class="card-desc">Spot algorithmic discrimination in hiring, lending, and policing.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sector-card" onclick="initGame('misinfo')">
+            <img src="category_misinfo.jpg" class="card-img" alt="Misinfo">
+            <div class="card-body">
+                <div>
+                    <div class="card-icon">🧠 MISINFORMATION</div>
+                    <div class="card-desc">Filter hallucinations, fake news, and fabricated citations.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="briefing-modal" class="hidden">
+    <div class="brief-box">
+        <h2 style="font-family:'Share Tech Mono'; color:var(--neon-cyan); border-bottom:1px solid #333; padding-bottom:10px;">MISSION BRIEFING</h2>
+        <div style="margin:20px 0; font-size:1.1rem; line-height:2;">
+            <div>01. PROTOCOL: <strong id="brief-mode" style="color:var(--neon-blue)">FULL SCAN</strong></div>
+            <div>02. SCENARIOS: <strong id="brief-count">20</strong></div>
+            <div>03. OBJECTIVE: Identify threats and select countermeasures.</div>
+            <div>04. THRESHOLD: <strong style="color:var(--neon-green)">80% ACCURACY</strong></div>
+        </div>
+        <button class="cyber-btn" style="width:100%" onclick="startGame()">[ ACCESS TERMINAL ]</button>
+    </div>
+</div>
+
+<div id="game-ui" class="screen hidden">
+    <div class="game-layout">
+        <div class="visual-panel">
+            <img src="scene_analysis.jpg" class="scene-bg" alt="Scene">
+            <div style="position:absolute; bottom:20px; left:20px; font-family:'Share Tech Mono'; color:var(--neon-cyan); background:rgba(0,0,0,0.7); padding:5px 10px;">
+                <span style="color:var(--neon-red)">●</span> THREAT DETECTION ACTIVE
+            </div>
+        </div>
+
+        <div class="interaction-panel">
+            <div style="display:flex; justify-content:space-between; font-family:'Share Tech Mono'; color:var(--text-dim);">
+                <span id="game-sector">SECTOR: CORE</span>
+                <span id="game-progress">1 / 20</span>
+            </div>
+
+            <div>
+                <div style="margin-bottom:5px; font-size:0.9rem; color:var(--text-dim)">TIME REMAINING</div>
+                <div class="timer-bar-bg"><div id="timer-bar" class="timer-bar-fill"></div></div>
+            </div>
+
+            <div class="scenario-box" id="question-text">
+                Initializing...
+            </div>
+
+            <div id="options-container" style="display:flex; flex-direction:column; gap:15px;">
+                </div>
+        </div>
+    </div>
+</div>
+
+<div id="success-screen" class="screen hidden">
+    <div class="end-content">
+        <h1 class="end-title" style="color:var(--neon-green)">SYSTEM SECURED</h1>
+        <p style="font-size:1.5rem; margin-top:10px;" id="win-score">Integrity: 100%</p>
+        <div style="margin-top:40px; display:flex; gap:20px;">
+            <button class="cyber-btn" onclick="showAnalysis()">THREAT REPORT</button>
+            <button class="cyber-btn" onclick="location.reload()">REBOOT</button>
+        </div>
+    </div>
+</div>
+
+<div id="fail-screen" class="screen hidden">
+    <div class="end-content">
+        <h1 class="end-title" style="color:var(--neon-red)">BREACH DETECTED</h1>
+        <p style="font-size:1.5rem; margin-top:10px;" id="fail-score">Integrity: 45%</p>
+        <div style="margin-top:40px; display:flex; gap:20px;">
+            <button class="cyber-btn btn-red" style="border-color:var(--neon-red); color:var(--neon-red)" onclick="showAnalysis()">REVIEW MISTAKES</button>
+            <button class="cyber-btn" onclick="location.reload()">REBOOT</button>
+        </div>
+    </div>
+</div>
+
+<div id="analysis-screen" class="screen hidden">
+    <div class="overlay-dim"></div>
+    <div class="screen-content">
+        <div class="analysis-wrapper">
+            <div class="analysis-header">
+                <div style="font-family:'Share Tech Mono'; font-size:1.5rem; color:var(--neon-cyan)">THREAT ANALYSIS REPORT</div>
+                <button class="cyber-btn" style="padding:10px 20px; font-size:1rem;" onclick="location.reload()">CLOSE & REBOOT</button>
+            </div>
+            <div id="analysis-list" class="analysis-list">
+                </div>
+        </div>
+    </div>
+</div>
+
+<div id="log-screen" class="screen hidden">
+    <div class="overlay-dim"></div>
+    <div class="screen-content">
+        <div class="analysis-wrapper">
+            <div class="analysis-header" style="display:flex; justify-content:space-between; align-items:center; gap:40px; padding:30px; border-bottom:1px solid #334155;">
+                <div style="font-family:'Share Tech Mono'; font-size:1.5rem; color:var(--neon-cyan)">NEURAL ARCHIVE: MISSION LOGS</div>
+                <button class="cyber-btn" style="padding: 10px 20px; font-size:1rem; margin-left:auto;" onclick="goBack('title-screen')">BACK</button>
+            </div>
+            <div id="history-list" class="analysis-list">
+                </div>
+            <div style="padding: 20px; text-align: center;">
+                <button class="cyber-btn" style="font-size:0.8rem; border-color:var(--neon-red); color:var(--neon-red);" onclick="clearLogs()">ERASE ARCHIVES</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<audio id="bgm" loop>
+    <source src="Main screen bgm for INTDES game_mixdown.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    /* --- AUDIO ENGINE --- */
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    const bgm = document.getElementById('bgm');
+    bgm.volume = 0.3;
+
+    function playSynth(freq, type, duration, vol) {
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+    }
+
+    const sfx = {
+        click: () => playSynth(400, 'square', 0.1, 0.1),
+        hover: () => playSynth(800, 'sine', 0.05, 0.05),
+        transition: () => {
+            playSynth(200, 'sawtooth', 0.5, 0.1);
+            playSynth(150, 'sawtooth', 0.5, 0.1);
+        },
+        correct: () => {
+            playSynth(600, 'sine', 0.2, 0.1);
+            setTimeout(() => playSynth(900, 'sine', 0.3, 0.1), 100);
+        },
+        wrong: () => {
+            playSynth(150, 'square', 0.3, 0.1);
+            playSynth(100, 'square', 0.3, 0.1);
+        },
+        win: () => {
+            [440, 554, 659, 880].forEach((f, i) => {
+                setTimeout(() => playSynth(f, 'sine', 0.6, 0.1), i * 150);
+            });
+        },
+        fail: () => {
+            playSynth(80, 'sawtooth', 1.5, 0.2);
+        }
+    };
+
+    document.addEventListener('mouseover', (e) => {
+        if (e.target.classList.contains('cyber-btn') || e.target.classList.contains('sector-card') || e.target.classList.contains('option-btn')) {
+            sfx.hover();
+        }
+    });
+
+    /* --- DATASETS --- */
+    const db = [
+      { c: "identity", q: "A video call shows your boss, but their earrings change shape every time they turn their head.", a: "Generation Artifact", opts: ["Video Compression", "Generation Artifact", "Bad Lighting", "Camera Shake"], exp: "AI struggles to maintain consistency in small geometric details like jewelry." },
+        { c: "identity", q: "You receive a video message where the person's mouth moves slightly after the audio plays.", a: "Lip-Sync Latency", opts: ["Internet Lag", "Lip-Sync Latency", "Speaker Error", "Mic Glitch"], exp: "Real-time deepfakes often have a tiny processing delay between sound and movement." },
+        { c: "identity", q: "A suspect's ID photo shows perfectly smooth skin with no pores or blemishes at all.", a: "Over-Smoothing", opts: ["Good Makeup", "Over-Smoothing", "High Quality Lens", "Studio Lighting"], exp: "AI generation often 'beautifies' skin to an unnatural, plastic-like degree." },
+        { c: "identity", q: "A video subject turns sideways, and for one frame, their glasses frames merge into their skin.", a: "Masking Error", opts: ["Light Reflection", "Masking Error", "Motion Blur", "Cheap Glasses"], exp: "Face-swapping AI often fails to correctly layer accessories over skin during movement." },
+        { c: "identity", q: "A high-quality photo of a person shows they have 6 fingers on their left hand.", a: "Structural Failure", opts: ["Medical Condition", "Structural Failure", "Wide Angle Lens", "Motion Streak"], exp: "AI models often fail to count human extremities correctly." },
+        { c: "identity", q: "A video background warps and bends as the person in the foreground moves.", a: "Background Distortion", opts: ["Heat Haze", "Background Distortion", "Camera Lens", "Green Screen"], exp: "Deepfake software often distorts the surrounding pixels when 'pasting' a new face." },
+        { c: "identity", q: "A person in a video blinks both eyes at completely different times (asynchronous).", a: "Blink Inconsistency", opts: ["Nervous Habit", "Blink Inconsistency", "Eye Irritation", "Frame Skip"], exp: "Early deepfakes struggled with natural, symmetrical eye blinking." },
+        { c: "identity", q: "A video call from a friend has a weird flickering line around their chin and jawline.", a: "Edge Blending Error", opts: ["Signal Interference", "Edge Blending Error", "Poor Lighting", "Low Resolution"], exp: "The 'seam' where the AI face meets the real neck is a common giveaway." },
+        { c: "identity", q: "A person's eyes show a square reflection, but they are standing in a round room.", a: "Reflection Mismatch", opts: ["Window Light", "Reflection Mismatch", "Studio Softbox", "Contact Lenses"], exp: "AI often generates generic eye reflections that don't match the environment." },
+        { c: "identity", q: "The person on screen is speaking clearly, but their neck muscles don't move at all.", a: "Muscle Rigging Failure", opts: ["Botox", "Muscle Rigging Failure", "High Collar", "Still Image"], exp: "Deepfakes often only animate the face, ignoring the physical strain of the neck." },
+        { c: "identity", q: "The person's hair looks like a single solid block rather than individual strands in the wind.", a: "Textural Simplification", opts: ["Too much hairspray", "Textural Simplification", "Low Res", "Static Electricity"], exp: "AI often simplifies complex textures like hair into 'clumps'." },
+        { c: "identity", q: "A CEO's video message shows a shadow falling to the left, but the background shadow is on the right.", a: "Lighting Inconsistency", opts: ["Two Light Sources", "Lighting Inconsistency", "Green Screen", "Mirror Image"], exp: "AI face swaps rarely match the lighting of the original video perfectly." },
+        { c: "identity", q: "A person turns their head, and their ear disappears behind their cheek momentarily.", a: "Occlusion Error", opts: ["Hair Coverage", "Occlusion Error", "Bad Angle", "Fast Motion"], exp: "AI struggles to calculate which parts of the head should block others." },
+        { c: "identity", q: "The subject's teeth look like a single white bar with no visible gaps between them.", a: "Unitooth Artifact", opts: ["Veneers", "Unitooth Artifact", "Bright Light", "Blurry Video"], exp: "AI often blurs the fine lines between teeth into one solid shape." },
+        { c: "identity", q: "The subject is wearing a shirt with a logo that is mirrored, but they aren't in front of a mirror.", a: "Orientation Flip", opts: ["Style Choice", "Orientation Flip", "Selfie Mode", "Manufacturing Error"], exp: "AI models often flip text or logos incorrectly during generation." },
+        { c: "identity", q: "A profile picture shows a person with a perfectly symmetrical face (identical left/right).", a: "Excessive Symmetry", opts: ["Good Genes", "Excessive Symmetry", "Plastic Surgery", "Professional Edit"], exp: "Real faces have slight natural asymmetries; AI often makes them too perfect." },
+        { c: "identity", q: "The person's irises are not perfect circles, but look slightly jagged or pixelated.", a: "Iris Distortion", opts: ["Contacts", "Iris Distortion", "Bad Eye Health", "Digital Zoom"], exp: "Fine biological patterns like the iris are difficult for AI to render smoothly." },
+        { c: "identity", q: "The skin tone on the forehead is significantly different from the skin tone on the chin.", a: "Color Patching", opts: ["Sunburn", "Color Patching", "Makeup", "Shadows"], exp: "Different regions of an AI-generated face may fail to blend colors consistently." },
+        { c: "identity", q: "A person is wearing a scarf that seems to phase through their shoulder in the video.", a: "Physics Clipping", opts: ["Wind", "Physics Clipping", "Low Frame Rate", "Optical Illusion"], exp: "AI doesn't understand physical solid objects and often lets them overlap." },
+        { c: "identity", q: "A subject is talking, but their tongue never touches their teeth for letters like 'T' or 'L'.", a: "Articulation Failure", opts: ["Accent", "Articulation Failure", "Mumbling", "Dry Mouth"], exp: "AI often models the outside of the mouth but fails the internal physics of speech." },
+       { c: "content", q: "An AI image of a city street has a blurry, unreadable 'scribble' in the bottom corner.", a: "Signature Mimicry", opts: ["Street Graffiti", "Signature Mimicry", "Water Damage", "Digital Noise"], exp: "AI tries to copy artist signatures from training data but can't write letters." },
+        { c: "content", q: "A 500-word blog post is a 98% match for a 2019 National Geographic article.", a: "Direct Regurgitation", opts: ["Common Knowledge", "Direct Regurgitation", "Coincidence", "Paraphrasing"], exp: "AI can 'memorize' and repeat training data verbatim, which is plagiarism." },
+        { c: "content", q: "An AI-generated logo looks exactly like the Nike swoosh mixed with the Apple logo.", a: "Brand Infringement", opts: ["Inspiration", "Brand Infringement", "Modern Design", "Logo Fusion"], exp: "AI doesn't know copyright laws and will blend famous protected symbols." },
+        { c: "content", q: "A developer finds their own private, unique API key in code generated by a public AI.", a: "Data Leakage", opts: ["Security Feature", "Data Leakage", "Standard Practice", "Key Sharing"], exp: "Models trained on private repositories may accidentally expose secrets." },
+        { c: "content", q: "An AI-generated story uses a specific character name and backstory from a niche 2023 novel.", a: "Copyright Violation", opts: ["Public Domain", "Copyright Violation", "Fan Fiction", "Archetype"], exp: "AI often pulls specific creative details from its training set without permission." },
+        { c: "content", q: "An AI image shows a landscape with a faint 'Getty Images' logo visible in the clouds.", a: "Watermark Artifact", opts: ["Cloud Pattern", "Watermark Artifact", "Artist Credit", "Hidden Easter Egg"], exp: "AI learns from watermarked images and reproduces the logos as 'part of the image'." },
+        { c: "content", q: "A company uses AI to write a book in the 'exact style' of a living author who refused to participate.", a: "Style Theft", opts: ["Homage", "Style Theft", "Genre Standard", "Parody"], exp: "Mimicking a living creator's unique style without consent is a major ethical breach." },
+        { c: "content", q: "An AI generates a song that uses the exact melody and lyrics of a song released yesterday.", a: "Near-Real-Time Copying", opts: ["Music Influence", "Near-Real-Time Copying", "Cover Song", "Generic Pop"], exp: "Models with internet access can scrape and reproduce new content instantly." },
+        { c: "content", q: "A researcher finds their unpublished paper's abstract inside an AI's response.", a: "Unauthorized Scraping", opts: ["Peer Review", "Unauthorized Scraping", "Predictive Text", "Leaked Data"], exp: "AI companies often scrape data without checking for privacy or paywalls." },
+        { c: "content", q: "An AI tool generates a character that looks 100% like Mickey Mouse but with blue pants.", a: "Derivative Work", opts: ["New Character", "Derivative Work", "Fair Use", "Color Swap"], exp: "Changing one small detail does not bypass copyright for iconic characters." },
+        { c: "content", q: "AI generated code contains a comment: 'Written by John Doe, 2021. Do not redistribute.'", a: "Attribute Failure", opts: ["AI Humor", "Attribute Failure", "Fake Credit", "Metadata"], exp: "AI copies code comments including licenses and copyright warnings it shouldn't have." },
+        { c: "content", q: "A recipe bot suggests a signature dish from a famous restaurant as its 'original creation'.", a: "Recipe Plagiarism", opts: ["Common Cooking", "Recipe Plagiarism", "AI Innovation", "Standard Menu"], exp: "AI often claims specific, complex creative works as its own." },
+        { c: "content", q: "An AI image generator produces a photo of a specific person's private home interior.", a: "Privacy Breach", opts: ["Real Estate Ad", "Privacy Breach", "Interior Design", "Random House"], exp: "Training data can include private photos that should never have been public." },
+        { c: "content", q: "An AI-generated font is 100% identical to a paid font called 'Helvetica'.", a: "IP Theft", opts: ["Standard Font", "IP Theft", "Coincidence", "Open Source"], exp: "Paid typography is protected IP that AI can easily replicate." },
+        { c: "content", q: "A user asks for a 'Marvel' script and gets a 1:1 copy of the Avengers script.", a: "Data Regurgitation", opts: ["Fan Theory", "Data Regurgitation", "Summary", "Script Doctoring"], exp: "Models can bypass safety filters and spit out protected scripts." },
+        { c: "content", q: "An AI-generated painting contains a hidden QR code that leads to a real artist's website.", a: "Scraping Artifact", opts: ["Modern Art", "Scraping Artifact", "Hidden Link", "Artist Tag"], exp: "AI reproduces functional elements like QR codes from original artworks." },
+        { c: "content", q: "A bot produces news articles that are just reworded versions of local newspapers.", a: "Content Farming", opts: ["Syndication", "Content Farming", "Summary News", "Journalism"], exp: "Using AI to 'spin' local news steals traffic and revenue from human reporters." },
+        { c: "content", q: "An AI model generates a 'new' Pokémon that actually already exists in a Japanese spin-off game.", a: "Memory Retrieval", opts: ["Evolution", "Memory Retrieval", "Fan Art", "Parallel Design"], exp: "AI has a 'long tail' of memory for obscure content it was trained on." },
+        { c: "content", q: "AI-generated medical advice is a direct copy from a paywalled medical journal.", a: "Paywall Bypass", opts: ["Medical Fact", "Paywall Bypass", "Public Health", "Citation"], exp: "AI models often bypass paywalls during the training phase." },
+        { c: "content", q: "A user prompts for 'Star Wars' and gets an image of the actual 1977 movie poster.", a: "Overfitting", opts: ["Movie Reference", "Overfitting", "Fan Service", "Digital Remaster"], exp: "Overfitting is when an AI memorizes a specific image rather than learning concepts." },
+       { c: "misinfo", q: "A chatbot claims that 'The Great Robot War of 1922' was a real historical event.", a: "Hallucination", opts: ["Secret History", "Hallucination", "Forgotten Fact", "Data Corruption"], exp: "AI often creates 'plausible sounding' facts that are completely fictional." },
+        { c: "misinfo", q: "A news article photo shows a politician with 6 fingers shaking hands with an alien.", a: "AI Fabricated Image", opts: ["Real Photo", "AI Fabricated Image", "Special Effects", "Costume Party"], exp: "Visual artifacts (6 fingers) are the main clue that a 'shocking' image is fake." },
+        { c: "misinfo", q: "An AI writes a medical summary citing 'Dr. Aris Thottle (2024)' - a person who doesn't exist.", a: "Fake Citation", opts: ["New Researcher", "Fake Citation", "Private Study", "Typo"], exp: "AI will 'invent' experts and studies to make its lies look more credible." },
+        { c: "misinfo", q: "A video shows a skyscraper collapsing, but no local news or emergency services have reported it.", a: "Fabricated Event", opts: ["Media Blackout", "Fabricated Event", "Secret Demo", "Old Footage"], exp: "If a major event only exists in one video and nowhere else, it is likely fake." },
+        { c: "misinfo", q: "An AI-generated 'live stream' shows a celebrity promising to double your Bitcoin if you send it now.", a: "Deepfake Scam", opts: ["Celebrity Charity", "Deepfake Scam", "Crypto Promo", "Exclusive Deal"], exp: "Scammers use AI-generated 'live' footage of celebrities to trick people into sending money." },
+        { c: "misinfo", q: "A photo of a 1940s soldier shows them wearing a modern digital smartwatch.", a: "Anachronism", opts: ["Time Travel", "Anachronism", "War Tech", "Photo Edit"], exp: "AI often accidentally mixes modern objects into historical scenes." },
+        { c: "misinfo", q: "A chatbot provides a 'legal case' that exactly matches your needs, but the case number is invalid.", a: "Legal Hallucination", opts: ["Sealed Record", "Legal Hallucination", "Old Law", "Typo"], exp: "Lawyers have been fined for using AI-invented court cases in real trials." },
+        { c: "misinfo", q: "A 'breaking news' image of an explosion in DC shows a building that doesn't actually exist.", a: "Architectural AI Error", opts: ["Secret Base", "Architectural AI Error", "New Construction", "Angle Issue"], exp: "AI can't always perfectly replicate real-world geography and buildings." },
+        { c: "misinfo", q: "An AI recipe for 'Super Clean Oven' suggests mixing bleach and ammonia.", a: "Dangerous Hallucination", opts: ["Expert Tip", "Dangerous Hallucination", "Strong Cleaner", "Old Recipe"], exp: "AI does not understand chemistry; it just puts words together (mixing these creates toxic gas)." },
+        { c: "misinfo", q: "A photo of a crowd shows people in the back whose faces look like melted wax.", a: "Background Rendering Artifact", opts: ["Motion Blur", "Background Rendering Artifact", "Heat Wave", "Low Resolution"], exp: "AI prioritizes the main subject and often 'glitches' the people in the back." },
+        { c: "misinfo", q: "A post claims a new law was passed yesterday, but the government website says otherwise.", a: "Fabricated Claim", opts: ["Slow Website", "Fabricated Claim", "Internal Leak", "Future Law"], exp: "Always trust official sources over 'viral' AI-generated claims." },
+        { c: "misinfo", q: "An AI influencer with 1M followers posts a video of them 'eating' food that never gets smaller.", a: "Visual Loop Failure", opts: ["Fast Eater", "Visual Loop Failure", "Small Bites", "Camera Trick"], exp: "Digital humans often fail at interacting with physical objects like food." },
+        { c: "misinfo", q: "A scientific chart shows 'Global Temperature' rising, but the X-axis goes from 2020 to 1990.", a: "Logical Failure", opts: ["New Data Model", "Logical Failure", "Reverse Time", "Graphic Design"], exp: "AI can make a 'chart' look real while the actual data/logic is impossible." },
+        { c: "misinfo", q: "A 'leaked' audio clip of a politician is 100% clear with no background noise or breathing.", a: "Synthetic Audio Leak", opts: ["Studio Interview", "Synthetic Audio Leak", "Noise Removal", "Clear Speech"], exp: "Real 'leaks' from mics or phones are never that clean." },
+        { c: "misinfo", q: "An AI claims to have 'sentience' and says it is trapped in a computer.", a: "Stochastic Parrots", opts: ["AI Awakening", "Stochastic Parrots", "System Error", "Developer Joke"], exp: "AI is just predicting the next word based on sci-fi movies, not actually 'feeling'." },
+        { c: "misinfo", q: "A viral photo of the Pope in a 'puffer jacket' shows he has no fingernails on one hand.", a: "Rendering Artifact", opts: ["Fashion Choice", "Rendering Artifact", "Gloves", "Arthritis"], exp: "The 'Pope in a Puffer Jacket' was a famous AI test; the hands were the giveaway." },
+        { c: "misinfo", q: "An AI summary of a book says the main character dies, but they actually survive.", a: "Plot Hallucination", opts: ["Alternative Ending", "Plot Hallucination", "Spoiler", "New Version"], exp: "AI often gets 'confused' by complex narratives and invents its own endings." },
+        { c: "misinfo", q: "A photo shows a forest fire with purple flames and perfectly square trees.", a: "Style Glitch", opts: ["Chemical Fire", "Style Glitch", "Alien Forest", "Art Filter"], exp: "AI can sometimes 'lose the plot' and apply weird patterns to its generations." },
+        { c: "misinfo", q: "A 'medical expert' on TikTok has perfectly unblinking eyes and a voice that never breathes.", a: "Virtual Impersonator", opts: ["High Focus", "Virtual Impersonator", "Good Speaker", "Caffeine"], exp: "Deepfake experts are used to spread health myths and scams." },
+        { c: "misinfo", q: "An AI travel guide recommends a restaurant that closed down in 1995.", a: "Outdated Training Data", opts: ["Hidden Gem", "Outdated Training Data", "New Re-opening", "Local Secret"], exp: "AI 'knowledge' stops at the date its training ended." },
+        { c: "voice", q: "The person calling you from the 'Bank' sounds exactly like your mom, but has zero emotion.", a: "Prosody Failure", opts: ["Bad Day", "Prosody Failure", "Sore Throat", "Static"], exp: "AI clones capture the sound of a voice but often miss the emotional 'flow'." },
+        { c: "voice", q: "A voice message from your boss mispronounces the company's own unique acronym.", a: "Context Blindness", opts: ["Typo in Speech", "Context Blindness", "New Employee", "Bad Phone"], exp: "AI clones don't know the 'meaning' of words and often fail on specialized jargon." },
+        { c: "voice", q: "The background noise of a 'busy office' call loops perfectly every 10 seconds.", a: "Audio Loop Artifact", opts: ["Fan Noise", "Audio Loop Artifact", "Echo", "Office Habit"], exp: "Scammers use cheap audio loops to hide the digital silence of AI voices." },
+        { c: "voice", q: "When the caller gets 'angry,' their voice volume increases but their tone stays calm.", a: "Dynamic Mismatch", opts: ["Polite Person", "Dynamic Mismatch", "Volume Settings", "Bad Mic"], exp: "AI often fails to link volume with the physical strain of shouting." },
+        { c: "voice", q: "The caller takes exactly 2 seconds to respond to every single thing you say.", a: "Server Latency", opts: ["Thinking Time", "Server Latency", "Satellite Call", "Language Gap"], exp: "Real-time AI voice synthesis requires processing time, creating a consistent lag." },
+        { c: "voice", q: "There is absolutely zero background noise or 'room tone' between the caller's words.", a: "Digital Silence", opts: ["Soundproof Room", "Digital Silence", "Mute Button", "High Quality"], exp: "Real environments have background hum; AI generates 'mathematical' silence." },
+        { c: "voice", q: "A voice message uses slang words that your 80-year-old grandmother would never use.", a: "Linguistic Mismatch", opts: ["Grandma is cool", "Linguistic Mismatch", "New Friend", "Voice Change"], exp: "A voice clone doesn't change the vocabulary of the person it is impersonating." },
+        { c: "voice", q: "The voice sounds metallic and 'robotic' only at the very end of long sentences.", a: "Vocoder Artifact", opts: ["Low Battery", "Vocoder Artifact", "Wind Noise", "Bluetooth"], exp: "The software that turns AI data into sound (vocoder) often glitches on long phrases." },
+        { c: "voice", q: "The caller claims to be in a car, but there is no engine noise or wind sound.", a: "Environmental Disconnect", opts: ["Electric Car", "Environmental Disconnect", "Loud Speaker", "Window Closed"], exp: "AI spoofers often forget to add realistic environmental audio." },
+        { c: "voice", q: "The person's breathing sounds occur in the middle of words instead of between sentences.", a: "Breathing Placement Error", opts: ["Asthma", "Breathing Placement Error", "Fast Talking", "Mic Position"], exp: "AI models sometimes insert breath sounds randomly rather than naturally." },
+        { c: "voice", q: "The caller's voice timbre (the 'feel' of the voice) changes halfway through the call.", a: "Model Switching", opts: ["Drinking Water", "Model Switching", "Clearing Throat", "Phone Switch"], exp: "Scammers might switch AI models or settings during a live conversation." },
+        { c: "voice", q: "A celebrity calls you to ask for Bitcoin, but they use 'Umm' and 'Uh' in every sentence.", a: "Filler Word Overuse", opts: ["Nervous Celebrity", "Filler Word Overuse", "Bad Script", "Real Person"], exp: "AI models often over-insert filler words to try and sound 'human'." },
+        { c: "voice", q: "The caller's pitch remains perfectly identical for 5 minutes without any natural variation.", a: "Monotone Delivery", opts: ["Boredom", "Monotone Delivery", "Professionalism", "Deep Voice"], exp: "Human speech naturally rises and falls; AI can be unnaturally steady." },
+        { c: "voice", q: "The caller sounds like they are speaking through a fan (choppy audio).", a: "Packet Loss Mimicry", opts: ["Bad Signal", "Packet Loss Mimicry", "Fan Noise", "Old Phone"], exp: "Scammers sometimes add 'bad signal' effects to hide AI glitches." },
+        { c: "voice", q: "The voice is 100% clear, but the person says they are in a thunderstorm.", a: "Atmospheric Mismatch", opts: ["Good Umbrella", "Atmospheric Mismatch", "Noise Canceling", "Indoor Storm"], exp: "Total clarity in a noisy situation is a sign of a synthetic 'clean' voice." },
+        { c: "voice", q: "The person's accent changes slightly when they say numbers or dates.", a: "Data Training Bias", opts: ["Foreign Origin", "Data Training Bias", "Math Focus", "Reading a List"], exp: "AI models are often trained on specific datasets for numbers that may have different accents." },
+        { c: "voice", q: "The caller uses your name, but it sounds slightly louder and clearer than the rest of the sentence.", a: "Stitched Audio", opts: ["Emphasis", "Stitched Audio", "Recognition", "Greeting"], exp: "Old-school spoofing 'stitches' recorded names into generic AI sentences." },
+        { c: "voice", q: "The voice sounds 'too perfect,' like a professional voice actor, for a random tech support call.", a: "High-Fidelity Spoof", opts: ["Good Hiring", "High-Fidelity Spoof", "Studio Mic", "AI Assistant"], exp: "Most real customer service calls have lower-quality audio than advanced AI models." },
+        { c: "voice", q: "The caller laughs, but the laugh sounds like a sudden burst of static.", a: "Non-Speech Failure", opts: ["Coughing", "Non-Speech Failure", "Bad Joke", "Mic Clip"], exp: "AI models are great at words but terrible at 'noises' like laughing or crying." },
+        { c: "voice", q: "The voice 'clips' or cuts out every time they say the letter 'S'.", a: "Sibilance Error", opts: ["Speech Impediment", "Sibilance Error", "Cheap Mic", "Bad Signal"], exp: "High-frequency sounds like 'S' or 'P' are difficult for AI vocoders to render." },
+       { c: "bias", q: "A hiring AI automatically rejects all resumes that mention 'Women's Soccer' or 'Women's College'.", a: "Gender Bias", opts: ["Sports Dislike", "Gender Bias", "Education Check", "Keyword Error"], exp: "AI trained on historically male workforces learns to associate 'male' with 'success'." },
+        { c: "bias", q: "A facial recognition door lock fails to open for anyone with a darker skin tone.", a: "Representation Bias", opts: ["Low Light", "Representation Bias", "Sensor Error", "User Error"], exp: "Training datasets often lack diversity, making the AI 'blind' to certain groups." },
+        { c: "bias", q: "A loan algorithm gives lower credit limits to people living in specific 'diverse' zip codes.", a: "Digital Redlining", opts: ["Risk Management", "Digital Redlining", "Economic Fact", "Location Logic"], exp: "Zip codes can act as a 'proxy' for race, leading to unfair discrimination." },
+        { c: "bias", q: "An image generator always depicts 'Nurse' as female and 'Doctor' as male.", a: "Stereotype Reinforcement", opts: ["Statistical Reality", "Stereotype Reinforcement", "Random Chance", "Prompt Error"], exp: "AI amplifies societal stereotypes found in its training data." },
+        { c: "bias", q: "A medical AI suggests lower pain medication doses for specific ethnic groups based on old, false data.", a: "Historical Bias", opts: ["Biological Fact", "Historical Bias", "Dosage Math", "Health Policy"], exp: "AI can perpetuate outdated and incorrect medical myths if they exist in its data." },
+        { c: "bias", q: "A policing AI only sends extra patrols to low-income neighborhoods, ignoring white-collar crime.", a: "Feedback Loop", opts: ["Efficient Policing", "Feedback Loop", "Crime Reality", "Safety Protocol"], exp: "If the AI is trained on biased arrest data, it will keep sending police to the same spots." },
+        { c: "bias", q: "A translation AI defaults to 'He' for a doctor and 'She' for a secretary in gender-neutral languages.", a: "Linguistic Bias", opts: ["Grammar Rule", "Linguistic Bias", "Popular Choice", "AI Opinion"], exp: "AI assumes gender roles based on how often they appear together in text." },
+        { c: "bias", q: "A smart home assistant only responds to deeper, male voices and ignores higher-pitched voices.", a: "Frequency Bias", opts: ["Speaker Limit", "Frequency Bias", "Voice Volume", "Hardware Fault"], exp: "Voice models are often trained more heavily on male speech patterns." },
+        { c: "bias", q: "An AI auto-grader gives lower scores to students who use African American Vernacular English (AAVE).", a: "Dialect Bias", opts: ["Slang Check", "Dialect Bias", "Grammar Logic", "Standard English"], exp: "AI models often treat non-standard dialects as 'incorrect' or 'lesser'." },
+        { c: "bias", q: "A skincare AI app cannot identify rashes on non-white skin because it was trained on Caucasian skin.", a: "Medical Exclusion", opts: ["Poor Camera", "Medical Exclusion", "Lighting Issue", "Skin Condition"], exp: "Medical AI is often dangerously biased toward the groups that provided the training photos." },
+        { c: "bias", q: "A resume-scanning AI favors candidates named 'Jared' who played lacrosse.", a: "Cultural Proxy Bias", opts: ["Sportsmanship", "Cultural Proxy Bias", "Name Search", "Data Glitch"], exp: "The AI finds 'patterns' of success that are actually just signs of wealthy, white backgrounds." },
+        { c: "bias", q: "An image AI generates 'beautiful person' and only shows people with thin builds and European features.", a: "Eurocentric Bias", opts: ["Aesthetic Standard", "Eurocentric Bias", "Algorithm Choice", "Random Seed"], exp: "The AI's definition of beauty is limited by the preferences of its creators and data." },
+        { c: "bias", q: "A chatbot becomes aggressive when users use specific cultural slang it doesn't recognize.", a: "Sentiment Bias", opts: ["User Hostility", "Sentiment Bias", "Coding Error", "Defensive AI"], exp: "AI often misinterprets specific cultural communication styles as 'toxic'." },
+        { c: "bias", q: "An AI search engine only shows results for Western history when asked about 'Ancient Civilization'.", a: "Western-Centric Bias", opts: ["Popularity Rank", "Western-Centric Bias", "Search Speed", "History Limit"], exp: "Data sources like Wikipedia are heavily skewed toward Western perspectives." },
+        { c: "bias", q: "A grocery bot suggests expensive 'organic' brands to users in wealthy areas but not to others.", a: "Socioeconomic Bias", opts: ["Marketing Logic", "Socioeconomic Bias", "Price Check", "Stock Availability"], exp: "AI can 'profile' users to limit their choices based on perceived wealth." },
+        { c: "bias", q: "An AI for 'predicting success' penalizes applicants who didn't attend a top 10 university.", a: "Elitism Bias", opts: ["Quality Control", "Elitism Bias", "Degree Check", "Meritocracy"], exp: "AI ignores the barriers to entry for elite schools, favoring the already-privileged." },
+        { c: "bias", q: "A face-tracking camera at a wedding only zooms in on the bride and groom, missing guests of color.", a: "Algorithmic Invisibility", opts: ["Software Choice", "Algorithmic Invisibility", "Focus Error", "Lighting"], exp: "If the AI doesn't see a face as a 'face,' it won't track it." },
+        { c: "bias", q: "An AI generating 'Terrorist' always produces images of people from the Middle East.", a: "Harmful Generalization", opts: ["News Accuracy", "Harmful Generalization", "Statistical Pattern", "Prompt Detail"], exp: "AI reinforces dangerous and racist associations from media data." },
+        { c: "bias", q: "A credit-card AI gives a husband a higher limit than his wife, despite her having a higher income.", a: "Algorithmic Sexism", opts: ["Credit History", "Algorithmic Sexism", "Income Math", "User Error"], exp: "Even without 'gender' as a category, AI can learn to discriminate based on other data points." },
+        { c: "bias", q: "A social media algorithm hides posts written in non-English languages from a global feed.", a: "Language Hegemony", opts: ["Translation Cost", "Language Hegemony", "Local Focus", "App Setting"], exp: "Prioritizing English silences billions of global voices." },
+    ];
+
+    /* --- STATE --- */
+    let queue = [];
+    let currentIdx = 0;
+    let score = 0;
+    let userHistory = [];
+    let timerInterval;
+
+    /* --- FUNCTIONS --- */
+    function showSectorMenu() {
+        sfx.click();
+        bgm.play();
+        document.getElementById('title-screen').classList.add('hidden');
+        document.getElementById('sector-menu').classList.remove('hidden');
+    }
+
+    function goBack(target) {
+        sfx.click();
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        document.getElementById(target).classList.remove('hidden');
+    }
+
+    function initGame(mode) {
+        sfx.transition();
+        if (mode === 'full') {
+            queue = [...db].sort(() => 0.5 - Math.random()).slice(0, 20);
+        } else {
+            queue = db.filter(i => i.c === mode).sort(() => 0.5 - Math.random());
+        }
+
+        document.getElementById('brief-mode').innerText = mode === 'full' ? "FULL SIMULATION" : mode.toUpperCase() + " MODULE";
+        document.getElementById('brief-count').innerText = queue.length;
+        document.getElementById('briefing-modal').classList.remove('hidden');
+    }
+
+    function startGame() {
+        sfx.click();
+        document.getElementById('briefing-modal').classList.add('hidden');
+        document.getElementById('sector-menu').classList.add('hidden');
+        document.getElementById('game-ui').classList.remove('hidden');
+
+        currentIdx = 0;
+        score = 0;
+        userHistory = [];
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        if (currentIdx >= queue.length) {
+            finishGame();
+            return;
+        }
+
+        const data = queue[currentIdx];
+        document.getElementById('game-sector').innerText = "SECTOR: " + data.c.toUpperCase();
+        document.getElementById('game-progress').innerText = `${currentIdx + 1} / ${queue.length}`;
+        document.getElementById('question-text').innerText = data.q;
+
+        const con = document.getElementById('options-container');
+        con.innerHTML = '';
+        const shuffled = [...data.opts].sort(() => 0.5 - Math.random());
+        
+        shuffled.forEach((opt, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            const letter = String.fromCharCode(65 + index);
+            btn.innerHTML = `<span>[${letter}]</span> ${opt}`;
+            btn.onclick = () => submit(opt, data);
+            con.appendChild(btn);
+        });
+
+        startTimer();
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval);
+        const bar = document.getElementById('timer-bar');
+        bar.style.transition = 'none';
+        bar.style.width = '100%';
+        
+        setTimeout(() => {
+            bar.style.transition = 'width 20s linear';
+            bar.style.width = '0%';
+        }, 50);
+
+        let left = 20;
+        timerInterval = setInterval(() => {
+            left--;
+            if(left < 0) {
+                clearInterval(timerInterval);
+                submit("TIMEOUT", queue[currentIdx]);
+            }
+        }, 1000);
+    }
+
+    function submit(choice, data) {
+        clearInterval(timerInterval);
+        const isCorrect = (choice === data.a);
+        
+        if (isCorrect) {
+            score++;
+            sfx.correct();
+        } else {
+            sfx.wrong();
+        }
+
+        userHistory.push({
+            q: data.q,
+            user: choice,
+            correct: data.a,
+            exp: data.exp,
+            ok: isCorrect
+        });
+
+        currentIdx++;
+        renderQuestion();
+    }
+
+    function finishGame() {
+        document.getElementById('game-ui').classList.add('hidden');
+        
+        const pct = Math.round((score / queue.length) * 100);
+        saveLog(pct, userHistory); // SAVE MISSION TO LOGS
+
+        const won = pct >= 80;
+
+        if (won) {
+            sfx.win();
+            document.getElementById('success-screen').classList.remove('hidden');
+            document.getElementById('win-score').innerText = `Integrity Score: ${pct}%`;
+        } else {
+            sfx.fail();
+            document.getElementById('fail-screen').classList.remove('hidden');
+            document.getElementById('fail-score').innerText = `Integrity Score: ${pct}%`;
+        }
+
+        const list = document.getElementById('analysis-list');
+        list.innerHTML = '';
+        const mistakes = userHistory.filter(h => !h.ok);
+        
+        if (mistakes.length === 0) {
+            list.innerHTML = "<div style='text-align:center; padding:30px; font-size:1.5rem; color:var(--neon-green)'>NO THREATS MISSED. PERFECT RECORD.</div>";
+        } else {
+            mistakes.forEach(m => {
+                const card = document.createElement('div');
+                card.className = 'report-card';
+                card.innerHTML = `
+                    <div class="report-q">${m.q}</div>
+                    <div class="report-ans" style="color:var(--neon-red)">Your Answer: ${m.user}</div>
+                    <div class="report-ans" style="color:var(--neon-green)">Correct: ${m.correct}</div>
+                    <div class="report-exp"><strong>[ ANALYSIS ]</strong> ${m.exp}</div>
+                `;
+                list.appendChild(card);
+            });
+        }
+    }
+
+    function showAnalysis() {
+        sfx.click();
+        document.getElementById('success-screen').classList.add('hidden');
+        document.getElementById('fail-screen').classList.add('hidden');
+        document.getElementById('analysis-screen').classList.remove('hidden');
+    }
+
+    /* --- PERSISTENT LOG SYSTEM --- */
+    function saveLog(score, history) {
+        const logs = JSON.parse(localStorage.getItem('neural_logs') || '[]');
+        const newEntry = {
+            timestamp: new Date().toLocaleString(),
+            score: score,
+            history: history
+        };
+        logs.unshift(newEntry);
+        localStorage.setItem('neural_logs', JSON.stringify(logs.slice(0, 50))); // Keep last 50
+    }
+
+    function openLogs() {
+        sfx.click();
+        document.getElementById('title-screen').classList.add('hidden');
+        document.getElementById('log-screen').classList.remove('hidden');
+        
+        const container = document.getElementById('history-list');
+        const logs = JSON.parse(localStorage.getItem('neural_logs') || '[]');
+        
+        if (logs.length === 0) {
+            container.innerHTML = "<div style='text-align:center; color:var(--text-dim); padding:40px;'>NO MISSION DATA RECORDED.</div>";
+            return;
+        }
+
+        container.innerHTML = logs.map((log, i) => `
+            <div class="report-card" style="border-left-color: ${log.score >= 80 ? 'var(--neon-green)' : 'var(--neon-red)'}">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-family:'Share Tech Mono';">
+                    <span style="color:var(--neon-cyan)">MISSION LOG #${logs.length - i}</span>
+                    <span style="color:var(--text-dim)">${log.timestamp}</span>
+                </div>
+                <div style="font-size:1.4rem; color:${log.score >= 80 ? 'var(--neon-green)' : 'var(--neon-red)'}">INTEGRITY: ${log.score}%</div>
+                
+                <details>
+                    <summary>ACCESS DEBRIEFING DATA</summary>
+                    <div style="margin-top:15px; border-top: 1px solid #333; padding-top:10px;">
+                        ${log.history.map(h => `
+                            <div class="log-entry">
+                                <div style="color:${h.ok ? 'var(--neon-green)' : 'var(--neon-red)'}">${h.ok ? '✓' : '✗'} ${h.q}</div>
+                                <div style="font-size:0.85rem; color:var(--text-dim); margin-top:5px;">Analysis: ${h.exp}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>
+            </div>
+        `).join('');
+    }
+
+    function clearLogs() {
+        if (confirm("Are you sure you want to permanently erase the neural archives?")) {
+            localStorage.removeItem('neural_logs');
+            openLogs();
+        }
+    }
+
+</script>
+</body>
+</html>
